@@ -30,7 +30,7 @@ HISTORY_FILE = os.path.join(BASE_DIR, 'purchase_history.json')
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/122.0.0.0 Safari/537.36"
+    "Chrome/133.0.0.0 Safari/537.36"
 )
 
 # ══════════════════════════════════════════════════════════════
@@ -111,16 +111,18 @@ def do_login(page, user_id, user_pw):
 
         # 변경된 비밀번호 입력창 (#inpUserPswdEncn)
         page.locator("#inpUserPswdEncn").click()
-        page.wait_for_timeout(800)
-        page.fill("#inpUserPswdEncn", "")
-        page.locator("#inpUserPswdEncn").press_sequentially(user_pw, delay=200)
         page.wait_for_timeout(1000)
+        page.fill("#inpUserPswdEncn", "")
+        # 비밀번호는 보안상 리얼하게 한 자씩 더 천천히 (250ms)
+        page.locator("#inpUserPswdEncn").press_sequentially(user_pw, delay=250)
+        page.wait_for_timeout(1200)
 
-        # ─────────────────────────────────────────
-        # 로그인 시도 후 '간소화 페이지' 여부 확인
-        # ─────────────────────────────────────────
-        page.click("#btnLogin", delay=100)
-        time.sleep(3)
+        # 로그인 시뮬레이션: 버튼 위에서 약간 머무른 후 클릭
+        login_btn = page.locator("#btnLogin")
+        login_btn.hover()
+        page.wait_for_timeout(500)
+        login_btn.click(delay=150)
+        time.sleep(4)
 
         # 1. 일반적인 로그인 성공 확인 + 간소화 페이지 대응
         for i in range(15):
@@ -154,6 +156,13 @@ def do_login(page, user_id, user_pw):
             if is_logged_in(page):
                 logger.info("[LOGIN] ✅ 로그인 성공!")
                 return True
+            
+            # 페이지에 '로그인 실패' 혹은 '로그인 정보' 등 키워드가 있는지 확인
+            current_text = page.content()
+            if "로그인 정보가 맞지 않습니다" in current_text or "아이디 또는 비밀번호" in current_text:
+                logger.warning("[LOGIN] ❌ 아이디/비밀번호 불일치 메시지 감지")
+                return False
+            
             time.sleep(1)
 
         # 2. 로또 6/45 전용 직접 확인 (간소화 페이지 우회용)
@@ -509,14 +518,19 @@ def automate_purchase(user_id, user_pw, numbers):
                 ]
             )
             context = browser.new_context(
-                viewport={"width": 1366, "height": 768},
+                viewport={"width": 1920, "height": 1080},
                 user_agent=UA,
                 locale="ko-KR",
+                timezone_id="Asia/Seoul",
+                ignore_https_errors=True
             )
+            
+            # 고급 스텔스 설정
             context.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                  get: () => undefined
-                });
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                window.chrome = { runtime: {} };
+                Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
+                Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
             """)
             page = context.new_page()
 
@@ -554,7 +568,29 @@ def index():
 @app.route('/health')
 @app.route('/ping')
 def health():
-    return jsonify({"status": "ok", "env": "render" if os.environ.get('RENDER') else "local"}), 200
+    return jsonify({
+        "status": "ok", 
+        "env": "render" if os.environ.get('RENDER') else "local",
+        "python": sys.version[:10],
+        "playwright": "available"
+    }), 200
+
+@app.route('/diagnostic')
+def diagnostic():
+    """브라우저 실행 가능 여부 정밀 진단"""
+    logger.info("[DIAG] 브라우저 진단 시작...")
+    sync_playwright = _get_playwright_module()
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+            page = browser.new_page()
+            page.goto("https://www.google.com", timeout=15000)
+            title = page.title()
+            browser.close()
+            return jsonify({"success": True, "title": title, "msg": "브라우저 엔진이 정상 작동합니다."})
+    except Exception as e:
+        logger.error(f"[DIAG] 실패: {e}")
+        return jsonify({"success": False, "msg": str(e)}), 500
 
 @app.route('/buy', methods=['POST'])
 def buy():

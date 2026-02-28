@@ -89,6 +89,7 @@
             margin-bottom: 0.75rem;
             background: linear-gradient(to right, #ffffff, #94a3b8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -432,6 +433,7 @@
             margin-bottom: 0.4rem;
             background: linear-gradient(to right, #38bdf8, #818cf8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -605,6 +607,7 @@
             margin-bottom: 0.4rem;
             background: linear-gradient(to right, #4ade80, #22d3ee);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -756,18 +759,22 @@
             <button onclick="location.reload()"
                 style="padding: 0.6rem 1.2rem; background: #38bdf8; border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer;">연결
                 다시 시도</button>
+            <button onclick="runDiagnostic()"
+                style="padding: 0.6rem 1.2rem; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 10px; color: var(--text-dim); font-weight: 500; cursor: pointer; margin-left: 0.5rem;">진단
+                실행</button>
         </div>
+    </div>
 
-        <!-- 구매 이력 -->
-        <div class="history-section">
-            <div class="history-header">
-                <span>🧾 구매 이력 <small style="color: #475569; font-size: 0.72rem;">(30일 후 자동 삭제)</small></span>
-                <button class="btn-clear-history" onclick="clearAllHistory()">전체 삭제</button>
-            </div>
-            <div class="history-scroll" id="historyList">
-                <div class="history-empty" id="historyEmpty">구매 이력이 없습니다.</div>
-            </div>
+    <!-- 구매 이력 -->
+    <div class="history-section">
+        <div class="history-header">
+            <span>🧾 구매 이력 <small style="color: #475569; font-size: 0.72rem;">(30일 후 자동 삭제)</small></span>
+            <button class="btn-clear-history" onclick="clearAllHistory()">전체 삭제</button>
         </div>
+        <div class="history-scroll" id="historyList">
+            <div class="history-empty" id="historyEmpty">구매 이력이 없습니다.</div>
+        </div>
+    </div>
     </div>
 
     <div id="toast">메시지</div>
@@ -1170,6 +1177,22 @@
                 purchaseBtn.style.opacity = '0.5';
                 // 서버 없어도 로컬스토리지 이력은 표시
                 renderHistoryItems(loadHistoryLocal());
+            }
+        }
+
+        async function runDiagnostic() {
+            const apiBase = window.LOTTO_API_BASE || '';
+            showToast('서버 브라우저 엔진 진단 시작...');
+            try {
+                const res = await fetch(`${apiBase}/diagnostic`);
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ 진단 성공: ' + data.msg + '\n접속 확인: ' + data.title);
+                } else {
+                    alert('❌ 진단 실패: ' + data.msg);
+                }
+            } catch (e) {
+                alert('⚠️ 진단 요청 실패: 서버에 연결할 수 없습니다.');
             }
         }
 
