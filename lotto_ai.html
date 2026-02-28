@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Premium Lotto Engine</title>
+    <meta name="description" content="AI 기반 로또 6/45 번호 추천 및 동행복권 자동 구매 시스템">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #070912;
+            --container-bg: rgba(15, 23, 42, 0.65);
+            --accent-primary: #38bdf8;
+            --accent-secondary: #818cf8;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+
+            --lotto-1: linear-gradient(135deg, #facc15, #ca8a04);
+            --lotto-2: linear-gradient(135deg, #60a5fa, #2563eb);
+            --lotto-3: linear-gradient(135deg, #f87171, #dc2626);
+            --lotto-4: linear-gradient(135deg, #94a3b8, #475569);
+            --lotto-5: linear-gradient(135deg, #4ade80, #16a34a);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 2rem 0 4rem;
+            overflow-x: hidden;
+        }
+
+        .ambient-light {
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(129, 140, 248, 0.08) 0%, transparent 40%);
+        }
+
+        .container {
+            width: 92%;
+            max-width: 700px;
+            padding: 3.5rem 2.5rem;
+            background: var(--container-bg);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid var(--glass-border);
+            border-radius: 2.5rem;
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            position: relative;
+            margin-top: 1rem;
+        }
+
+        .container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            border-radius: 2.5rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -2.5px;
+            margin-bottom: 0.75rem;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .description {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            font-weight: 300;
+            margin-bottom: 3.5rem;
+        }
+
+        /* Ball Section */
+        .ball-area {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 4rem;
+            min-height: 80px;
+            perspective: 1000px;
+        }
+
+        .ball {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+            transform: rotateY(90deg) scale(0.5);
+            opacity: 0;
+            transition: all 0.7s cubic-bezier(0.19, 1, 0.22, 1);
+            position: relative;
+        }
+
+        .ball.active {
+            transform: rotateY(0deg) scale(1);
+            opacity: 1;
+        }
+
+        .ball::before {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            width: 30%;
+            height: 30%;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        .c-1 {
+            background: var(--lotto-1);
+            color: #000;
+        }
+
+        .c-2 {
+            background: var(--lotto-2);
+        }
+
+        .c-3 {
+            background: var(--lotto-3);
+        }
+
+        .c-4 {
+            background: var(--lotto-4);
+        }
+
+        .c-5 {
+            background: var(--lotto-5);
+        }
+
+        /* Action Buttons */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .base-btn {
+            padding: 1.4rem;
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            color: white;
+        }
+
+        .btn-random {
+            background: rgba(56, 189, 248, 0.1);
+            border-color: rgba(56, 189, 248, 0.2);
+        }
+
+        .btn-stats {
+            background: rgba(129, 140, 248, 0.1);
+            border-color: rgba(129, 140, 248, 0.2);
+        }
+
+        .btn-random:hover {
+            background: rgba(56, 189, 248, 0.2);
+            transform: translateY(-4px);
+        }
+
+        .btn-stats:hover {
+            background: rgba(129, 140, 248, 0.2);
+            transform: translateY(-4px);
+        }
+
+        .btn-main {
+            width: 100%;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            border: none;
+            font-size: 1.2rem;
+            font-weight: 700;
+            box-shadow: 0 15px 35px rgba(56, 189, 248, 0.25);
+            margin-bottom: 2rem;
+        }
+
+        .btn-main:hover {
+            transform: translateY(-5px) scale(1.02);
+            filter: brightness(1.1);
+            box-shadow: 0 20px 45px rgba(56, 189, 248, 0.4);
+        }
+
+        .btn-main:disabled {
+            opacity: 0.5;
+            cursor: wait;
+            transform: none;
+        }
+
+        /* History Section */
+        .history-section {
+            padding-top: 2rem;
+            border-top: 1px solid var(--glass-border);
+            text-align: left;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .history-header span {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        .btn-clear-history {
+            background: transparent;
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: #f87171;
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-clear-history:hover {
+            background: rgba(248, 113, 113, 0.1);
+        }
+
+        .history-scroll {
+            max-height: 320px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+
+        .history-card {
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid transparent;
+            transition: border 0.3s;
+        }
+
+        .history-card:hover {
+            border-color: rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .history-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }
+
+        .history-round {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .history-date {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+        }
+
+        .tag {
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.07);
+            color: var(--text-dim);
+        }
+
+        .mini-balls {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .mini-ball {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .history-empty {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            padding: 2rem 0;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .ball {
+                width: 48px;
+                height: 48px;
+                font-size: 1.2rem;
+            }
+
+            .btn-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2.2rem;
+            }
+
+            .container {
+                padding: 2rem 1.25rem;
+            }
+        }
+
+        /* Status Toast */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            border: 1px solid var(--accent-primary);
+            color: white;
+            font-weight: 600;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.5s, bottom 0.5s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        #toast.visible {
+            opacity: 1;
+            bottom: 50px;
+        }
+
+        /* ── 로그인 모달 ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-box {
+            background: rgba(15, 23, 42, 0.97);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 1.75rem;
+            padding: 2.5rem 2rem;
+            width: 92%;
+            max-width: 400px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+            transform: translateY(20px);
+            transition: transform 0.35s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        .modal-overlay.open .modal-box {
+            transform: translateY(0);
+        }
+
+        .modal-box h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .modal-box p.modal-desc {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-bottom: 1.8rem;
+        }
+
+        .modal-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-input-wrap label {
+            display: block;
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .modal-input-wrap input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .modal-input-wrap input:focus {
+            border-color: rgba(56, 189, 248, 0.5);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+        }
+
+        .modal-btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .modal-cancel {
+            padding: 0.9rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.9rem;
+            color: var(--text-dim);
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .modal-cancel:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-confirm {
+            padding: 0.9rem;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            border: none;
+            border-radius: 0.9rem;
+            color: white;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: filter 0.3s, transform 0.3s;
+        }
+
+        .modal-confirm:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        .modal-confirm:disabled {
+            opacity: 0.5;
+            cursor: wait;
+            transform: none;
+        }
+
+        .modal-status {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            text-align: center;
+            min-height: 1.2rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .modal-status.error {
+            color: #f87171;
+        }
+
+        .modal-status.success {
+            color: #4ade80;
+        }
+
+        /* ── 구매완료 팝업 ── */
+        #successModal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        #successModal.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .success-box {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(8, 15, 30, 0.98));
+            border: 1px solid rgba(74, 222, 128, 0.35);
+            border-radius: 2rem;
+            padding: 2.5rem 2rem;
+            width: 92%;
+            max-width: 480px;
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 60px rgba(74, 222, 128, 0.08);
+            transform: scale(0.85) translateY(30px);
+            transition: transform 0.45s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        #successModal.open .success-box {
+            transform: scale(1) translateY(0);
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 0.75rem;
+            animation: bounceIn 0.6s ease;
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            60% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .success-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 0.4rem;
+            background: linear-gradient(to right, #4ade80, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .success-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 1.8rem;
+        }
+
+        .success-round {
+            display: inline-block;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 50px;
+            padding: 6px 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #38bdf8;
+            margin-bottom: 1.5rem;
+        }
+
+        .success-balls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .success-ball {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            position: relative;
+            animation: popIn 0.4s ease both;
+        }
+
+        .success-ball::before {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            width: 30%;
+            height: 30%;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0) rotate(-20deg);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .success-close-btn {
+            padding: 1rem 3rem;
+            background: linear-gradient(135deg, #4ade80, #22d3ee);
+            border: none;
+            border-radius: 1rem;
+            color: #000;
+            font-family: inherit;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: filter 0.3s, transform 0.3s;
+            box-shadow: 0 10px 30px rgba(74, 222, 128, 0.3);
+        }
+
+        .success-close-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-3px);
+        }
+
+        /* Server status */
+        #serverStatus {
+            font-size: 0.95rem;
+            margin-top: -1.5rem;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        #launcherGuide {
+            display: none;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid #f87171;
+            padding: 1.5rem;
+            border-radius: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 0 20px rgba(248, 113, 113, 0.2);
+        }
+
+        .progress-bar-wrap {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            margin-top: 0.75rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            border-radius: 4px;
+            transition: width 1s linear;
+        }
+
+        .progress-bar-wrap.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ambient-light"></div>
+    <div class="container">
+        <h1>LOTTO ENGINE</h1>
+        <p class="description">지능형 알고리즘 및 클라우드 연동 자동 구매</p>
+
+        <div class="ball-area" id="ballDisplay"></div>
+
+        <div class="btn-grid">
+            <button class="base-btn btn-random" id="btnRandom" onclick="recommendNumbers('auto')">RANDOM 추천</button>
+            <button class="base-btn btn-stats" id="btnStats" onclick="recommendNumbers('stat')">10년 빈도 통계</button>
+        </div>
+
+        <button class="base-btn btn-main" id="purchaseBtn" onclick="openLoginModal()">🎰 동행복권 즉시 구매 (연계계정)</button>
+        <div id="serverStatus">서버 확인 중...</div>
+
+        <div id="launcherGuide">
+            <p style="font-size: 0.9rem; color: #f87171; margin-bottom: 1rem; line-height: 1.5;">⚠️ <b>서버 연동 실패:</b> 파이썬
+                서버가 꺼져 있습니다.<br><span style="color: #94a3b8; font-size: 0.8rem;">'1_로또AI_통합실행기.bat' 파일을 먼저 실행하세요.</span>
+            </p>
+            <button onclick="location.reload()"
+                style="padding: 0.6rem 1.2rem; background: #38bdf8; border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer;">연결
+                다시 시도</button>
+        </div>
+
+        <!-- 구매 이력 -->
+        <div class="history-section">
+            <div class="history-header">
+                <span>🧾 구매 이력 <small style="color: #475569; font-size: 0.72rem;">(30일 후 자동 삭제)</small></span>
+                <button class="btn-clear-history" onclick="clearAllHistory()">전체 삭제</button>
+            </div>
+            <div class="history-scroll" id="historyList">
+                <div class="history-empty" id="historyEmpty">구매 이력이 없습니다.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">메시지</div>
+
+    <!-- 로그인 모달 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-box">
+            <h2>🔐 동행복권 계정 연결</h2>
+            <p class="modal-desc">구매를 위해 동행복권 아이디와 비밀번호를 입력하세요.<br>정보는 서버로만 전달되며 저장되지 않습니다.</p>
+            <div class="modal-input-group">
+                <div class="modal-input-wrap">
+                    <label for="modalId">아이디</label>
+                    <input type="text" id="modalId" placeholder="동행복권 아이디" autocomplete="username">
+                </div>
+                <div class="modal-input-wrap">
+                    <label for="modalPw">비밀번호</label>
+                    <input type="password" id="modalPw" placeholder="비밀번호" autocomplete="current-password">
+                </div>
+            </div>
+            <div class="modal-btn-row">
+                <button class="modal-cancel" onclick="closeLoginModal()">취소</button>
+                <button class="modal-confirm" id="modalConfirmBtn" onclick="confirmPurchase()">구매 시작</button>
+            </div>
+            <div class="progress-bar-wrap" id="progressWrap">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="modal-status" id="modalStatus"></div>
+        </div>
+    </div>
+
+    <!-- 구매완료 팝업 -->
+    <div id="successModal">
+        <div class="success-box">
+            <div class="success-icon">🎉</div>
+            <div class="success-title">구매 완료!</div>
+            <div class="success-subtitle">동행복권 즉시 구매가 성공적으로 완료되었습니다</div>
+            <div class="success-round" id="successRound">회차 정보 로딩 중...</div>
+            <div class="success-balls" id="successBalls"></div>
+            <button class="success-close-btn" onclick="closeSuccessModal()">확인</button>
+        </div>
+    </div>
+
+    <script>
+        /* ════════════════════════════════════════
+           상수 / 유틸
+        ════════════════════════════════════════ */
+        const STAT_NUMS = [1, 27, 34, 43, 13, 33, 17, 4, 39, 11, 40, 2, 20, 26, 37, 10, 14, 18, 5, 24];
+        const HISTORY_KEY = 'lotto_purchase_history';
+        let currentNumbers = [];
+
+        function showToast(msg, duration = 4000) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('visible');
+            setTimeout(() => t.classList.remove('visible'), duration);
+        }
+
+        function getBallColor(n) {
+            if (n <= 10) return 'c-1';
+            if (n <= 20) return 'c-2';
+            if (n <= 30) return 'c-3';
+            if (n <= 40) return 'c-4';
+            return 'c-5';
+        }
+
+        /* ════════════════════════════════════════
+           번호 추천
+        ════════════════════════════════════════ */
+        function recommendNumbers(mode) {
+            const display = document.getElementById('ballDisplay');
+            display.innerHTML = '';
+
+            let pool = (mode === 'auto')
+                ? Array.from({ length: 45 }, (_, i) => i + 1)
+                : [...STAT_NUMS, ...STAT_NUMS, ...Array.from({ length: 45 }, (_, i) => i + 1)];
+
+            const result = [];
+            while (result.length < 6) {
+                const n = pool[Math.floor(Math.random() * pool.length)];
+                if (!result.includes(n)) result.push(n);
+            }
+            result.sort((a, b) => a - b);
+            currentNumbers = result;
+
+            result.forEach((num, i) => {
+                const el = document.createElement('div');
+                el.className = `ball ${getBallColor(num)}`;
+                el.innerText = num;
+                display.appendChild(el);
+                setTimeout(() => el.classList.add('active'), i * 120);
+            });
+
+            showToast(`${mode === 'auto' ? '랜덤' : '통계'} 기반 번호가 생성되었습니다.`);
+        }
+
+        /* ════════════════════════════════════════
+           로그인 모달
+        ════════════════════════════════════════ */
+        function openLoginModal() {
+            if (currentNumbers.length !== 6) {
+                showToast('먼저 번호를 생성해 주세요.');
+                return;
+            }
+            document.getElementById('modalStatus').textContent = '';
+            document.getElementById('modalStatus').className = 'modal-status';
+            document.getElementById('progressWrap').classList.remove('active');
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('loginModal').classList.add('open');
+            document.getElementById('modalId').focus();
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('open');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLoginModal();
+                closeSuccessModal();
+            }
+        });
+
+        document.getElementById('loginModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('loginModal')) closeLoginModal();
+        });
+
+        /* ════════════════════════════════════════
+           구매 실행
+        ════════════════════════════════════════ */
+        async function confirmPurchase() {
+            const uid = document.getElementById('modalId').value.trim();
+            const upw = document.getElementById('modalPw').value.trim();
+            const statusEl = document.getElementById('modalStatus');
+            const confirmBtn = document.getElementById('modalConfirmBtn');
+            const progressWrap = document.getElementById('progressWrap');
+            const progressBar = document.getElementById('progressBar');
+
+            // 현재 화면 상단에 보이는 번호를 다시 한번 정확히 긁어옴
+            const ballEls = document.querySelectorAll('#ballDisplay .ball');
+            if (ballEls.length === 6) {
+                currentNumbers = Array.from(ballEls).map(b => parseInt(b.innerText)).sort((a, b) => a - b);
+                console.log('구매 요청 번호 (UI 기반):', currentNumbers);
+            }
+
+            if (!uid || !upw) {
+                statusEl.textContent = '아이디와 비밀번호를 모두 입력하세요.';
+                statusEl.className = 'modal-status error';
+                return;
+            }
+
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '진행 중...';
+            statusEl.className = 'modal-status';
+            progressWrap.classList.add('active');
+
+            // 단계별 상태 메시지 (약 50초 총 소요 가정)
+            const steps = [
+                { t: 0, pct: 5, msg: '🌐 동행복권 사이트 접속 중...' },
+                { t: 4, pct: 20, msg: '🔐 연계 계정 로그인 처리 중...' },
+                { t: 12, pct: 40, msg: '🎱 로또 6/45 구매 페이지 진입 중...' },
+                { t: 20, pct: 60, msg: '🔢 번호 자동 선택 및 마킹 중...' },
+                { t: 32, pct: 80, msg: '💳 최종 구매 확정 처리 중...' },
+                { t: 44, pct: 92, msg: '⏳ 최종 결과 수신 대기 중...' },
+            ];
+
+            let stepTimers = steps.map(s =>
+                setTimeout(() => {
+                    statusEl.textContent = s.msg;
+                    progressBar.style.width = s.pct + '%';
+                }, s.t * 1000)
+            );
+
+            const apiBase = window.LOTTO_API_BASE || '';
+
+            try {
+                const response = await fetch(`${apiBase}/buy`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: uid, pw: upw, numbers: currentNumbers })
+                });
+
+                stepTimers.forEach(t => clearTimeout(t));
+                progressBar.style.width = '100%';
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    statusEl.textContent = `⚠️ 서버 오류 (${response.status}): 처리에 실패했습니다.`;
+                    statusEl.className = 'modal-status error';
+                    progressWrap.classList.remove('active');
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusEl.textContent = '✅ ' + data.message;
+                    statusEl.className = 'modal-status success';
+
+                    // 구매 이력 저장 (로컬스토리지 + 서버 응답 이중 저장)
+                    const entry = data.entry || {
+                        timestamp: new Date().toISOString(),
+                        numbers: currentNumbers,
+                        round: data.round || '---',
+                        round_date: data.round_date || new Date().toISOString().slice(0, 10)
+                    };
+                    saveHistoryLocal(entry);
+                    renderHistory();
+
+                    setTimeout(() => {
+                        closeLoginModal();
+                        showSuccessModal(currentNumbers, data.round, data.round_date);
+                    }, 600);
+                } else {
+                    statusEl.textContent = '❌ ' + data.message;
+                    statusEl.className = 'modal-status error';
+                    progressWrap.classList.remove('active');
+                }
+            } catch (e) {
+                stepTimers.forEach(t => clearTimeout(t));
+                statusEl.textContent = '⚠️ 서버 연결 실패. 서버가 실행 중인지 확인하세요.';
+                statusEl.className = 'modal-status error';
+                progressWrap.classList.remove('active');
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '구매 시작';
+            }
+        }
+
+        /* ════════════════════════════════════════
+           구매완료 팝업
+        ════════════════════════════════════════ */
+        function showSuccessModal(numbers, round, roundDate) {
+            // 회차 텍스트
+            const roundEl = document.getElementById('successRound');
+            if (round && round !== '---') {
+                roundEl.textContent = `🏆 제${round} 추첨일: ${roundDate || ''}`;
+            } else {
+                roundEl.textContent = `🏆 구매일: ${new Date().toLocaleDateString('ko-KR')}`;
+            }
+
+            // 번호 볼
+            const ballsEl = document.getElementById('successBalls');
+            ballsEl.innerHTML = '';
+            numbers.forEach((num, i) => {
+                const b = document.createElement('div');
+                b.className = `success-ball ${getBallColor(num)}`;
+                b.textContent = num;
+                b.style.animationDelay = `${i * 0.1}s`;
+                ballsEl.appendChild(b);
+            });
+
+            document.getElementById('successModal').classList.add('open');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.remove('open');
+        }
+
+        document.getElementById('successModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('successModal')) closeSuccessModal();
+        });
+
+        /* ════════════════════════════════════════
+           구매 이력 (로컬스토리지, 30일 자동만료)
+        ════════════════════════════════════════ */
+        function loadHistoryLocal() {
+            try {
+                const raw = localStorage.getItem(HISTORY_KEY);
+                if (!raw) return [];
+                const history = JSON.parse(raw);
+                const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000; // 30일
+                return history.filter(h => new Date(h.timestamp).getTime() > cutoff);
+            } catch { return []; }
+        }
+
+        function saveHistoryLocal(entry) {
+            try {
+                let history = loadHistoryLocal();
+                history.unshift(entry);
+                history = history.slice(0, 200);
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            } catch (e) { console.warn('이력 저장 실패:', e); }
+        }
+
+        function clearAllHistory() {
+            if (!confirm('구매 이력을 모두 삭제하시겠습니까?')) return;
+            localStorage.removeItem(HISTORY_KEY);
+            renderHistory();
+            showToast('구매 이력이 삭제되었습니다.');
+            // 서버 이력도 삭제 시도
+            const apiBase = window.LOTTO_API_BASE || '';
+            if (apiBase !== undefined) {
+                fetch(`${apiBase}/history`, { method: 'DELETE' }).catch(() => { });
+            }
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            const empty = document.getElementById('historyEmpty');
+
+            // 서버 이력 우선 로드 시도, 실패 시 로컬스토리지 사용
+            const apiBase = window.LOTTO_API_BASE;
+            if (apiBase !== undefined) {
+                fetch(`${apiBase}/history`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (data && data.history && data.history.length > 0) {
+                            renderHistoryItems(data.history);
+                        } else {
+                            renderHistoryItems(loadHistoryLocal());
+                        }
+                    })
+                    .catch(() => renderHistoryItems(loadHistoryLocal()));
+            } else {
+                renderHistoryItems(loadHistoryLocal());
+            }
+        }
+
+        function renderHistoryItems(history) {
+            const list = document.getElementById('historyList');
+            const empty = document.getElementById('historyEmpty');
+
+            // 30일 만료 필터
+            const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            history = history.filter(h => new Date(h.timestamp).getTime() > cutoff);
+
+            if (!history || history.length === 0) {
+                empty.style.display = 'block';
+                // 빈 카드들 제거
+                list.querySelectorAll('.history-card').forEach(c => c.remove());
+                return;
+            }
+            empty.style.display = 'none';
+            list.querySelectorAll('.history-card').forEach(c => c.remove());
+
+            history.forEach(entry => {
+                const card = document.createElement('div');
+                card.className = 'history-card';
+
+                const dateStr = entry.timestamp
+                    ? new Date(entry.timestamp).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : '';
+
+                const roundLabel = entry.round && entry.round !== '---'
+                    ? `제${entry.round}`
+                    : (entry.round_date || '');
+
+                let balls = '<div class="mini-balls">';
+                (entry.numbers || []).forEach(n => {
+                    balls += `<div class="mini-ball ${getBallColor(n)}">${n}</div>`;
+                });
+                balls += '</div>';
+
+                card.innerHTML = `
+                    <div class="history-card-top">
+                        <span class="history-round">${roundLabel || '회차미상'}</span>
+                        <span class="history-date">${dateStr}</span>
+                    </div>
+                    ${balls}
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        /* ════════════════════════════════════════
+           서버 연결 확인
+        ════════════════════════════════════════ */
+        async function checkServer() {
+            const statusEl = document.getElementById('serverStatus');
+            const guideEl = document.getElementById('launcherGuide');
+            const purchaseBtn = document.getElementById('purchaseBtn');
+
+            const targets = ['', 'http://127.0.0.1:5000', 'http://localhost:5000'];
+            let connected = false;
+
+            for (let base of targets) {
+                try {
+                    const res = await fetch(`${base}/health`, { mode: 'cors', cache: 'no-cache' });
+                    if (res.ok) {
+                        connected = true;
+                        window.LOTTO_API_BASE = base;
+                        break;
+                    }
+                } catch (e) { continue; }
+            }
+
+            if (connected) {
+                statusEl.innerHTML = '<span style="color: #4ade80; text-shadow: 0 0 10px #4ade80;">●</span> <span style="color: #4ade80;">서버 연동 완료 (정상)</span>';
+                guideEl.style.display = 'none';
+                purchaseBtn.disabled = false;
+                purchaseBtn.style.opacity = '1';
+                if (window.location.protocol === 'file:') {
+                    statusEl.innerHTML += `<br><a href="http://127.0.0.1:5000" style="color: #38bdf8; font-size: 0.8rem; text-decoration: underline;">[안정적인 서버 버전으로 전환]</a>`;
+                }
+                renderHistory();
+            } else {
+                statusEl.innerHTML = '<span style="color: #f87171; text-shadow: 0 0 10px #f87171;">●</span> <span style="color: #f87171;">서버 연동 대기 중 (적색)</span>';
+                guideEl.style.display = 'block';
+                purchaseBtn.disabled = true;
+                purchaseBtn.style.opacity = '0.5';
+                // 서버 없어도 로컬스토리지 이력은 표시
+                renderHistoryItems(loadHistoryLocal());
+            }
+        }
+
+        /* ════════════════════════════════════════
+           초기화
+        ════════════════════════════════════════ */
+        window.onload = () => {
+            recommendNumbers('auto');
+            checkServer();
+            setInterval(checkServer, 30000); // 30초마다 연동 체크
+        };
+    </script>
+</body>
+
+</html>
