@@ -8,7 +8,27 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# ── 로깅 설정 ──────────────────────────────────────────────────
+# ── Render/Docker 환경 브라우저 경로 근본 해결 ──────────────────
+def _setup_browser_env():
+    # 1. 의심되는 모든 경로 리스트 (우리가 시도했던 모든 가능성)
+    possible_paths = [
+        "/ms-playwright",                   # 공식 Docker 이미지 기본
+        "/app/pw-browsers",                # 우리가 시도했던 경로
+        "/opt/render/.cache/ms-playwright",   # Render Native 기본
+        os.path.expanduser("~/.cache/ms-playwright") # 일반 로컬 캐시
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = path
+            return path
+    
+    # 2. Render 환경이면 일단 Native 기본 경로라도 강제 설정 (폴더가 나중에 생길 수도 있음)
+    if os.environ.get('RENDER'):
+        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = "/opt/render/.cache/ms-playwright"
+    return None
+
+_setup_browser_env()
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -112,30 +132,29 @@ def do_login(page, user_id, user_pw):
                   wait_until="domcontentloaded", timeout=30000)
         time.sleep(2)
 
-        # 변경된 아이디 입력창 (#inpUserId)
-        page.wait_for_selector("#inpUserId", timeout=60000)
-        page.wait_for_timeout(1000)
-        page.locator("#inpUserId").click()
-        page.wait_for_timeout(800)
-        page.fill("#inpUserId", "")
-        page.locator("#inpUserId").press_sequentially(user_id, delay=200)
-        page.wait_for_timeout(800)
-
-        # 변경된 비밀번호 입력창 (#inpUserPswdEncn)
-        page.locator("#inpUserPswdEncn").click()
-        page.wait_for_timeout(1000)
-        page.fill("#inpUserPswdEncn", "")
-        # 비밀번호는 보안상 리얼하게 한 자씩 더 천천히 (250ms)
-        page.locator("#inpUserPswdEncn").press_sequentially(user_pw, delay=250)
-        page.wait_for_timeout(1200)
+        # 변경된 아이디 입력창 (#userId)
+        page.wait_for_selector("#userId", timeout=30000)
+        page.wait_for_timeout(500)
+        page.locator("#userId").click()
+        page.fill("#userId", "")
+        page.type("#userId", user_id, delay=150)
+        
+        # 변경된 비밀번호 입력창 (#userPwd)
+        page.locator("#userPwd").click()
+        page.fill("#userPwd", "")
+        page.type("#userPwd", user_pw, delay=200)
+        page.wait_for_timeout(500)
         _capture_screenshot(page)
 
-        # 로그인 시뮬레이션: 버튼 위에서 약간 머무른 후 클릭
-        login_btn = page.locator("#btnLogin")
+        # 로그인 버튼 (#btnLogin / .btn_common.lrg.blu)
+        login_btn = page.locator(".btn_common.lrg.blu").first
+        if not login_btn.is_visible():
+            login_btn = page.locator("#btnLogin")
+            
         login_btn.hover()
-        page.wait_for_timeout(500)
-        login_btn.click(delay=150)
-        time.sleep(4)
+        page.wait_for_timeout(300)
+        login_btn.click()
+        time.sleep(3)
 
         # 1. 일반적인 로그인 성공 확인 + 간소화 페이지 대응
         for i in range(15):
@@ -598,10 +617,14 @@ def diagnostic():
     sync_playwright = _get_playwright_module()
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+            # 브라우저 실행 시 경로 이슈를 방지하기 위해 args와 함께 명시적 실행
+            browser = p.chromium.launch(
+                headless=True, 
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+            )
             page = browser.new_page()
             # 동행복권 사이트 직접 접속 테스트
-            page.goto("https://www.dhlottery.co.kr/", timeout=15000)
+            page.goto("https://www.dhlottery.co.kr/", timeout=20000)
             title = page.title()
             browser.close()
             return jsonify({"success": True, "title": title, "msg": "브라우저 엔진이 정상 작동합니다."})
