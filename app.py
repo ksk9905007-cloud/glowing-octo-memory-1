@@ -33,6 +33,9 @@ UA = (
     "Chrome/133.0.0.0 Safari/537.36"
 )
 
+# ── 실시간 화면 중계용 ──────────────────────────────────────────
+latest_screenshot = None
+
 # ══════════════════════════════════════════════════════════════
 #  이력 관리
 # ══════════════════════════════════════════════════════════════
@@ -79,6 +82,15 @@ def _get_playwright_module():
     from playwright.sync_api import sync_playwright
     return sync_playwright
 
+def _capture_screenshot(page):
+    """현재 브라우저 화면 캡처 및 전역 변수 업데이트"""
+    global latest_screenshot
+    try:
+        # 가벼운 JPEG 포맷으로 캡처 (용량 최적화)
+        latest_screenshot = page.screenshot(type="jpeg", quality=60)
+    except Exception as e:
+        logger.debug(f"[SCREEN] 캡처 실패: {e}")
+
 def is_logged_in(page):
     try:
         content = page.content()
@@ -116,6 +128,7 @@ def do_login(page, user_id, user_pw):
         # 비밀번호는 보안상 리얼하게 한 자씩 더 천천히 (250ms)
         page.locator("#inpUserPswdEncn").press_sequentially(user_pw, delay=250)
         page.wait_for_timeout(1200)
+        _capture_screenshot(page)
 
         # 로그인 시뮬레이션: 버튼 위에서 약간 머무른 후 클릭
         login_btn = page.locator("#btnLogin")
@@ -344,6 +357,7 @@ def do_purchase(page, numbers):
             "https://el.dhlottery.co.kr/game/TotalGame.jsp?LottoId=LO40",
             wait_until="domcontentloaded", timeout=40000
         )
+        _capture_screenshot(page)
 
         # ─────────────────────────────────────────
         # ─────────────────────────────────────────
@@ -405,6 +419,7 @@ def do_purchase(page, numbers):
             
             # 사람이 직접 누르는 느낌과 인식률을 위해 0.8초 간격 유지
             time.sleep(0.8)
+            if num == numbers[-1]: _capture_screenshot(page) # 마지막 번호 선택 후 캡처
 
         if selected_count < 6:
             logger.warning(f"[PURCHASE] 번호 선택이 완벽하지 않음 ({selected_count}/6)")
@@ -484,6 +499,7 @@ def do_purchase(page, numbers):
             try:
                 if _click_in_frame(page, sel):
                     logger.info(f"[PURCHASE] 구매내역 팝업 클릭 ({sel})")
+                    _capture_screenshot(page) # 최종 완료 직전 캡처
                     break
             except:
                 pass
@@ -591,6 +607,14 @@ def diagnostic():
     except Exception as e:
         logger.error(f"[DIAG] 실패: {e}")
         return jsonify({"success": False, "msg": str(e)}), 500
+
+@app.route('/screenshot')
+def get_screenshot():
+    """현재 캡처된 화면 이미지 전송"""
+    from flask import Response
+    if latest_screenshot:
+        return Response(latest_screenshot, mimetype='image/jpeg')
+    return "No screenshot", 404
 
 @app.route('/buy', methods=['POST'])
 def buy():

@@ -542,6 +542,67 @@
             color: #4ade80;
         }
 
+        /* ── 라이브 스트림 영역 ── */
+        .live-stream-wrap {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            display: none;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            position: relative;
+        }
+
+        .live-stream-wrap.active {
+            display: block;
+        }
+
+        .live-stream-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .live-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(248, 113, 113, 0.8);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .live-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
         /* ── 구매완료 팝업 ── */
         #successModal {
             position: fixed;
@@ -801,6 +862,10 @@
             <div class="progress-bar-wrap" id="progressWrap">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
+            <div class="live-stream-wrap" id="liveStreamWrap">
+                <div class="live-badge">LIVE SERVER SCREEN</div>
+                <img id="liveScreenImg" src="" alt="서버 화면">
+            </div>
             <div class="modal-status" id="modalStatus"></div>
         </div>
     </div>
@@ -888,6 +953,27 @@
 
         function closeLoginModal() {
             document.getElementById('loginModal').classList.remove('open');
+            stopLiveStream();
+        }
+
+        let liveStreamInterval = null;
+        function startLiveStream() {
+            const wrap = document.getElementById('liveStreamWrap');
+            const img = document.getElementById('liveScreenImg');
+            wrap.classList.add('active');
+
+            const apiBase = window.LOTTO_API_BASE || '';
+            liveStreamInterval = setInterval(() => {
+                img.src = `${apiBase}/screenshot?t=${Date.now()}`;
+            }, 1000);
+        }
+
+        function stopLiveStream() {
+            if (liveStreamInterval) {
+                clearInterval(liveStreamInterval);
+                liveStreamInterval = null;
+            }
+            document.getElementById('liveStreamWrap').classList.remove('active');
         }
 
         document.addEventListener('keydown', (e) => {
@@ -929,6 +1015,7 @@
             confirmBtn.textContent = '진행 중...';
             statusEl.className = 'modal-status';
             progressWrap.classList.add('active');
+            startLiveStream();
 
             // 단계별 상태 메시지 (약 50초 총 소요 가정)
             const steps = [
